@@ -13,12 +13,9 @@ class DatabaseAdapter:
 
         cursor = conn.cursor()
         cursor.execute(query)
-
         row = cursor.fetchone()
-
         conn.close()
 
-        # ✅ SAFETY CHECK
         if row is None or row[0] is None:
             return 0
 

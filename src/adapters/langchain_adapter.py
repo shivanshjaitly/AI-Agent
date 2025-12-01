@@ -4,47 +4,55 @@ import os
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.prompts import PromptTemplate
-from utils.groq_models import get_first_chat_model
 
-load_dotenv(dotenv_path=".env")
+load_dotenv()
 
 class LangchainAdapter:
+
     def __init__(self):
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             raise RuntimeError("GROQ_API_KEY not found in .env")
 
-        model = get_first_chat_model()
-        print("✅ Using Groq model:", model)
-
         self.llm = ChatGroq(
             api_key=api_key,
-            model=model,
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             temperature=0
         )
 
         self.prompt = PromptTemplate.from_template("""
-You are a finance query understanding AI.
+You are a finance KPI extraction AI.
 
-Extract structured meaning strictly as JSON.
+Extract intent ONLY as JSON.
 
-Return ONLY JSON:
+Fields:
+- kpi: one of [GMV, REVENUE, GROSS_MARGIN, BANK_COST, SUCCESS_RATE]
+- months: list of month names (["October"], ["November"]) or []
+- year: number or null
+- quarter: number 1-4 or null
+- period: one of [MONTH, QUARTER, YTD, CURRENT]
+
+Return JSON only:
 
 {{ 
-  "metric": "",
-  "months": [] 
+  "kpi": "",
+  "months": [],
+  "year": null,
+  "quarter": null,
+  "period": ""
 }}
 
-User Question: {question}
+Question: {question}
 """)
 
     def parse(self, question):
         chain = self.prompt | self.llm
         response = chain.invoke({"question": question})
+
         text = response.content if hasattr(response, "content") else str(response)
 
         match = re.search(r"\{.*\}", text, re.S)
         if not match:
-            raise ValueError(f"Invalid LLM output: {text}")
+            raise ValueError("Invalid LLM JSON output")
 
         return json.loads(match.group())
